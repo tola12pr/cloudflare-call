@@ -1,5 +1,5 @@
 {
-    "name": "{{ project-name }}",
+    "name": "{{ cloudflare-call }}",
     "version": "1.0.0",
     "description": "A CORS proxy running in a worker",
     "main": "index.js",
