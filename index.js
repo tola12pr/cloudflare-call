@@ -17,8 +17,8 @@ addEventListener("fetch", async event => {
         }
 
         const targetUrl = decodeURIComponent(originUrl.search.substr(1));
-
         const filteredHeaders = new Headers();
+
         for (const [key, value] of event.request.headers.entries()) {
             if (
                 !key.match(/^origin$/i) && 
@@ -30,6 +30,11 @@ addEventListener("fetch", async event => {
             }
         }
 
+        const cookieHeader = event.request.headers.get("Cookie");
+        if (cookieHeader) {
+            filteredHeaders.set("Cookie", cookieHeader);
+        }
+
         const token = event.request.headers.get("Authorization");
         if (token) {
             filteredHeaders.set("Authorization", token);
@@ -38,7 +43,6 @@ addEventListener("fetch", async event => {
         const newRequest = new Request(event.request, {
             redirect: "follow",
             headers: filteredHeaders,
-            credentials: 'include'
         });
 
         let response;
@@ -55,13 +59,33 @@ addEventListener("fetch", async event => {
         const exposedHeaders = ["Content-Type", "X-Custom-Header", "X-Requested-With"];
         responseHeaders.set("Access-Control-Expose-Headers", exposedHeaders.join(","));
 
-        const responseBody = isPreflightRequest ? null : await response.arrayBuffer();
+        const acceptHeader = event.request.headers.get("Accept");
+        const responseBody = isPreflightRequest ? null : await response.text();
 
-        return new Response(responseBody, {
-            headers: responseHeaders,
-            status: isPreflightRequest ? 200 : response.status,
-            statusText: isPreflightRequest ? "OK" : response.statusText
-        });
+        if (acceptHeader && acceptHeader.includes("application/json")) {
+            try {
+                const jsonResponse = JSON.parse(responseBody);
+                return new Response(JSON.stringify(jsonResponse), {
+                    headers: {
+                        ...Object.fromEntries(responseHeaders),
+                        "Content-Type": "application/json"
+                    },
+                    status: response.status,
+                    statusText: response.statusText
+                });
+            } catch (e) {
+                return new Response("Invalid JSON response", { status: 500 });
+            }
+        } else {
+            return new Response(responseBody, {
+                headers: {
+                    ...Object.fromEntries(responseHeaders),
+                    "Content-Type": "text/html"
+                },
+                status: response.status,
+                statusText: response.statusText
+            });
+        }
 
     })());
 });
