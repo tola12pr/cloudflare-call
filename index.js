@@ -18,12 +18,6 @@ addEventListener("fetch", async event => {
 
         const targetUrl = decodeURIComponent(originUrl.search.substr(1));
 
-        console.log("Received request for:", targetUrl);
-        console.log("Request method:", event.request.method);
-
-        const originHeader = event.request.headers.get("Origin");
-        const connectingIp = event.request.headers.get("CF-Connecting-IP");
-
         const filteredHeaders = new Headers();
         for (const [key, value] of event.request.headers.entries()) {
             if (
@@ -36,23 +30,30 @@ addEventListener("fetch", async event => {
             }
         }
 
+        const token = event.request.headers.get("Authorization");
+        if (token) {
+            filteredHeaders.set("Authorization", token);
+        }
+
         const newRequest = new Request(event.request, {
             redirect: "follow",
-            headers: filteredHeaders
+            headers: filteredHeaders,
+            credentials: 'include'
         });
 
-        const response = await fetch(targetUrl, newRequest);
+        let response;
+        try {
+            response = await fetch(targetUrl, newRequest);
+        } catch (error) {
+            console.error("Fetch error:", error);
+            return new Response("Error fetching the target URL", { status: 502 });
+        }
+
         let responseHeaders = new Headers(response.headers);
         responseHeaders = setupCORSHeaders(responseHeaders);
 
         const exposedHeaders = ["Content-Type", "X-Custom-Header", "X-Requested-With"];
         responseHeaders.set("Access-Control-Expose-Headers", exposedHeaders.join(","));
-
-        const allResponseHeaders = {};
-        for (const [key, value] of response.headers.entries()) {
-            allResponseHeaders[key] = value;
-        }
-        responseHeaders.set("cors-received-headers", JSON.stringify(allResponseHeaders));
 
         const responseBody = isPreflightRequest ? null : await response.arrayBuffer();
 
