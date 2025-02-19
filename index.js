@@ -24,6 +24,8 @@ addEventListener("fetch", async event => {
                 !key.match(/^origin$/i) && 
                 !key.match(/^cf-/i) && 
                 !key.match(/^x-forw/i) && 
+                !key.match(/^_cf-/i) &&
+                !key.match(/^_cf/i) &&
                 !key.match(/^x-cors-headers$/i)
             ) {
                 filteredHeaders.set(key, value);
